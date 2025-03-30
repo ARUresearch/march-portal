@@ -1,119 +1,658 @@
-<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
-<script>
-    // Firebase configuration (replace with your actual config)
-    const firebaseConfig = {
-  apiKey: "AIzaSyB3ympyd2TkzEA8F35a9DfZ0Ahz5lXDkfg",
-  authDomain: "aru-research-71765.firebaseapp.com",
-  projectId: "aru-research-71765",
-  storageBucket: "aru-research-71765.firebasestorage.app",
-  messagingSenderId: "112268583297",
-  appId: "1:112268583297:web:2da01fd02baf4fd4898880",
-  measurementId: "G-PK5YEPLV7Q"
-};
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>ARU RESEARCH</title>
+    <style>
+        /* Your existing CSS styles remain exactly the same */
+        body {
+            font-family: Arial, sans-serif;
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #e0f7fa, #80deea);
+            color: #333;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            padding: 20px;
+        }
+        /* ... rest of your CSS ... */
+    </style>
+</head>
+<body>
+    <div class="container">
+        <!-- Your existing HTML structure remains exactly the same -->
+        <!-- Main Screen with Four Options -->
+        <div id="mainScreen">
+            <div class="company-name">ARU RESEARCH</div>
+            <h1>Employee Portal</h1>
+            <div class="nav">
+                <button onclick="showPortal('taskUpdate')">Task Update</button>
+                <button onclick="showPortal('salaryDashboard'); loadSalaryDashboard();">Salary Dashboard</button>
+                <button onclick="showPortal('projectList'); loadProjectList();">Project List</button>
+                <button onclick="showPortal('adminLoginSection')">Admin Control</button>
+            </div>
+        </div>
 
-    // Initialize Firebase
-    firebase.initializeApp(firebaseConfig);
-    const db = firebase.firestore();
+        <!-- All your existing portal sections remain the same -->
+        <!-- Task Update Section -->
+        <div id="taskUpdate" class="portal">
+            <!-- ... existing task update form ... -->
+        </div>
 
-    // Database Collections
-    const DB_COLLECTIONS = {
-        EMPLOYEES: "employees",
-        PROJECTS: "projects",
-        SETTINGS: "settings"
-    };
+        <!-- Salary Dashboard Section -->
+        <div id="salaryDashboard" class="portal">
+            <!-- ... existing salary dashboard ... -->
+        </div>
 
-    // Initialize data
-    let employees = [];
-    let projects = [];
-    let adminPassword = "Admin1234";
-    let loggedInUser = null;
+        <!-- Project List Section -->
+        <div id="projectList" class="portal">
+            <!-- ... existing project list ... -->
+        </div>
 
-    // Salary Slabs (example rates)
-    const slabRates = {
-        "A": 100,
-        "B": 80,
-        "C": 60
-    };
+        <!-- Admin Login Section -->
+        <div id="adminLoginSection" class="portal">
+            <!-- ... existing admin login ... -->
+        </div>
 
-    // Load all data from Firestore
-    async function loadAllData() {
-        try {
-            // Load employees
-            const employeesSnapshot = await db.collection(DB_COLLECTIONS.EMPLOYEES).get();
-            employees = employeesSnapshot.docs.map(doc => doc.data());
-            
-            // Load projects
-            const projectsSnapshot = await db.collection(DB_COLLECTIONS.PROJECTS).get();
-            projects = projectsSnapshot.docs.map(doc => doc.data());
-            
-            // Load admin password
-            const settingsDoc = await db.collection(DB_COLLECTIONS.SETTINGS).doc("admin").get();
-            if (settingsDoc.exists) {
-                adminPassword = settingsDoc.data().password || "Admin1234";
+        <!-- Admin Controls -->
+        <div id="adminControls" class="portal">
+            <!-- ... existing admin controls ... -->
+        </div>
+    </div>
+
+    <!-- Firebase SDK and your modified script -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script>
+        // Firebase configuration (using your provided config)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB3ympyd2TkzEA8F35a9DfZ0Ahz5lXDkfg",
+            authDomain: "aru-research-71765.firebaseapp.com",
+            projectId: "aru-research-71765",
+            storageBucket: "aru-research-71765.firebasestorage.app",
+            messagingSenderId: "112268583297",
+            appId: "1:112268583297:web:2da01fd02baf4fd4898880",
+            measurementId: "G-PK5YEPLV7Q"
+        };
+
+        // Initialize Firebase
+        firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+
+        // Database Collections
+        const DB_COLLECTIONS = {
+            EMPLOYEES: "employees",
+            PROJECTS: "projects",
+            SETTINGS: "settings"
+        };
+
+        // Initialize data
+        let employees = [];
+        let projects = [];
+        let adminPassword = "Admin1234";
+        let loggedInUser = null;
+        let currentEmployee = null;
+
+        // Salary Slabs
+        const slabRates = { "A": 100, "B": 80, "C": 60 };
+
+        // ====================== Firebase Operations ======================
+        
+        // Load all data from Firestore
+        async function loadAllData() {
+            try {
+                // Load employees
+                const employeesSnapshot = await db.collection(DB_COLLECTIONS.EMPLOYEES).get();
+                employees = employeesSnapshot.docs.map(doc => doc.data());
+                
+                // Load projects
+                const projectsSnapshot = await db.collection(DB_COLLECTIONS.PROJECTS).get();
+                projects = projectsSnapshot.docs.map(doc => doc.data());
+                
+                // Load admin password
+                const settingsDoc = await db.collection(DB_COLLECTIONS.SETTINGS).doc("admin").get();
+                if (settingsDoc.exists) {
+                    adminPassword = settingsDoc.data().password || "Admin1234";
+                } else {
+                    // Initialize admin password if not exists
+                    await db.collection(DB_COLLECTIONS.SETTINGS).doc("admin").set({ password: adminPassword });
+                }
+                
+                // Refresh views
+                loadProjectList();
+                loadSalaryDashboard();
+                
+                return true;
+            } catch (error) {
+                console.error("Error loading data:", error);
+                showErrorMessage("taskErrorMessage", "Error loading data. Please refresh the page.");
+                return false;
+            }
+        }
+
+        // Save employee data
+        async function saveEmployee(employeeData) {
+            try {
+                const docId = `${employeeData.name}_${employeeData.date}`;
+                await db.collection(DB_COLLECTIONS.EMPLOYEES).doc(docId).set(employeeData, { merge: true });
+                
+                // Update local employees array
+                const index = employees.findIndex(e => e.name === employeeData.name && e.date === employeeData.date);
+                if (index >= 0) {
+                    employees[index] = employeeData;
+                } else {
+                    employees.push(employeeData);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error("Error saving employee:", error);
+                return false;
+            }
+        }
+
+        // Save project data
+        async function saveProject(projectData) {
+            try {
+                const docId = projectData.name.toLowerCase().replace(/\s+/g, '_');
+                await db.collection(DB_COLLECTIONS.PROJECTS).doc(docId).set(projectData);
+                
+                // Update local projects array
+                const index = projects.findIndex(p => p.name === projectData.name);
+                if (index >= 0) {
+                    projects[index] = projectData;
+                } else {
+                    projects.push(projectData);
+                }
+                
+                return true;
+            } catch (error) {
+                console.error("Error saving project:", error);
+                return false;
+            }
+        }
+
+        // Update admin password
+        async function updateAdminPassword(newPassword) {
+            try {
+                await db.collection(DB_COLLECTIONS.SETTINGS).doc("admin").set({ password: newPassword });
+                adminPassword = newPassword;
+                return true;
+            } catch (error) {
+                console.error("Error updating password:", error);
+                return false;
+            }
+        }
+
+        // ====================== Modified Core Functions ======================
+
+        // Show Portal (unchanged)
+        function showPortal(portal) {
+            document.querySelectorAll(".portal").forEach(p => p.classList.remove("active"));
+            document.getElementById(portal).classList.add("active");
+            document.querySelectorAll(".status-message, .error-message").forEach(msg => {
+                msg.style.display = "none";
+            });
+        }
+
+        // Calculate Salary Slab (unchanged)
+        function calculateSalarySlab(tasksCompleted) {
+            if (tasksCompleted >= 20) return "A";
+            if (tasksCompleted >= 15) return "B";
+            return "C";
+        }
+
+        // Show Status Message (unchanged)
+        function showStatusMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = "block";
+            setTimeout(() => { element.style.display = "none"; }, 5000);
+        }
+
+        // Show Error Message (unchanged)
+        function showErrorMessage(elementId, message) {
+            const element = document.getElementById(elementId);
+            element.textContent = message;
+            element.style.display = "block";
+            setTimeout(() => { element.style.display = "none"; }, 5000);
+        }
+
+        // Mark Work Start (modified for Firestore)
+        async function markWorkStart() {
+            const selectedName = document.getElementById("employeeName").value;
+            const confirmName = document.getElementById("confirmName").value;
+
+            if (selectedName !== confirmName) {
+                showErrorMessage("taskErrorMessage", "Employee name does not match. Please confirm your name.");
+                return;
+            }
+
+            const now = new Date();
+            const today = now.toISOString().split("T")[0];
+            currentEmployee = { name: selectedName, date: today };
+
+            const employeeData = {
+                name: selectedName,
+                date: today,
+                workStart: now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                workEnd: null,
+                tasksCompleted: 0,
+                dailyEarnings: 0,
+                incentives: 0,
+                advances: 0
+            };
+
+            if (await saveEmployee(employeeData)) {
+                showStatusMessage("taskStatusMessage", "Work started successfully!");
             } else {
-                // Initialize admin password if not exists
-                await db.collection(DB_COLLECTIONS.SETTINGS).doc("admin").set({
-                    password: adminPassword
+                showErrorMessage("taskErrorMessage", "Failed to save work start time.");
+            }
+        }
+
+        // Mark Work End (modified for Firestore)
+        async function markWorkEnd() {
+            if (!currentEmployee) {
+                showErrorMessage("taskErrorMessage", "No active employee session. Please mark work start first.");
+                return;
+            }
+
+            const now = new Date();
+            const employeeIndex = employees.findIndex(emp => 
+                emp.name === currentEmployee.name && 
+                emp.date === currentEmployee.date
+            );
+
+            if (employeeIndex === -1) {
+                showErrorMessage("taskErrorMessage", "No attendance record found. Please mark work start first.");
+                return;
+            }
+
+            const employeeData = { ...employees[employeeIndex] };
+            employeeData.workEnd = now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'});
+
+            if (await saveEmployee(employeeData)) {
+                document.getElementById("taskForm").classList.remove("disabled");
+                showStatusMessage("taskStatusMessage", "Work ended successfully! You can now enter tasks.");
+            } else {
+                showErrorMessage("taskErrorMessage", "Failed to save work end time.");
+            }
+        }
+
+        // Task Form Submission (modified for Firestore)
+        document.getElementById("taskForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            
+            if (!currentEmployee) {
+                showErrorMessage("taskErrorMessage", "No active employee session.");
+                return;
+            }
+
+            const tasksCompleted = parseInt(document.getElementById("tasksCompleted").value);
+            const employeeIndex = employees.findIndex(emp => 
+                emp.name === currentEmployee.name && 
+                emp.date === currentEmployee.date
+            );
+
+            if (employeeIndex === -1) {
+                showErrorMessage("taskErrorMessage", "No attendance record found.");
+                return;
+            }
+
+            const employeeData = { ...employees[employeeIndex] };
+            employeeData.tasksCompleted = tasksCompleted;
+            
+            // Calculate earnings
+            const slab = calculateSalarySlab(tasksCompleted);
+            employeeData.dailyEarnings = tasksCompleted * slabRates[slab];
+            
+            if (await saveEmployee(employeeData)) {
+                document.getElementById("taskForm").reset();
+                document.getElementById("taskForm").classList.add("disabled");
+                showStatusMessage("taskStatusMessage", "Tasks Updated Successfully!");
+                if (document.getElementById("salaryDashboard").classList.contains("active")) {
+                    loadSalaryDashboard();
+                }
+            } else {
+                showErrorMessage("taskErrorMessage", "Failed to update tasks.");
+            }
+        });
+
+        // Load Salary Dashboard (modified for Firestore)
+        async function loadSalaryDashboard(filter = 'all') {
+            const salaryTableBody = document.querySelector("#salaryTable tbody");
+            salaryTableBody.innerHTML = "";
+
+            let filteredEmployees = [...employees];
+            const today = new Date().toISOString().split("T")[0];
+            const currentMonth = new Date().getMonth() + 1;
+            const currentYear = new Date().getFullYear();
+
+            if (filter === 'today') {
+                filteredEmployees = employees.filter(emp => emp.date === today);
+            } else if (filter === 'month') {
+                filteredEmployees = employees.filter(emp => {
+                    const empDate = new Date(emp.date);
+                    return empDate.getMonth() + 1 === currentMonth && empDate.getFullYear() === currentYear;
                 });
             }
-            
-            // Refresh views
-            loadProjectList();
-            loadSalaryDashboard();
-            
-            return true;
-        } catch (error) {
-            console.error("Error loading data:", error);
-            showErrorMessage("taskErrorMessage", "Error loading data. Please refresh the page.");
-            return false;
-        }
-    }
 
-    // Save employee data
-    async function saveEmployee(employeeData) {
-        try {
-            const docId = `${employeeData.name}_${employeeData.date}`;
-            await db.collection(DB_COLLECTIONS.EMPLOYEES).doc(docId).set(employeeData, { merge: true });
-            return true;
-        } catch (error) {
-            console.error("Error saving employee:", error);
-            return false;
-        }
-    }
+            filteredEmployees.sort((a, b) => new Date(b.date) - new Date(a.date));
 
-    // Save project data
-    async function saveProject(projectData) {
-        try {
-            const docId = projectData.name.toLowerCase().replace(/\s+/g, '_');
-            await db.collection(DB_COLLECTIONS.PROJECTS).doc(docId).set(projectData);
-            return true;
-        } catch (error) {
-            console.error("Error saving project:", error);
-            return false;
-        }
-    }
+            if (filteredEmployees.length === 0) {
+                const row = document.createElement("tr");
+                row.innerHTML = `<td colspan="10" style="text-align: center;">No records found</td>`;
+                salaryTableBody.appendChild(row);
+                return;
+            }
 
-    // Update admin password
-    async function updateAdminPassword(newPassword) {
-        try {
-            await db.collection(DB_COLLECTIONS.SETTINGS).doc("admin").set({
-                password: newPassword
+            filteredEmployees.forEach(employee => {
+                const totalSalary = (employee.dailyEarnings || 0) + (employee.incentives || 0) - (employee.advances || 0);
+                const slab = employee.tasksCompleted ? calculateSalarySlab(employee.tasksCompleted) : "-";
+                
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${employee.name}</td>
+                    <td>${employee.date}</td>
+                    <td>${employee.workStart || "-"}</td>
+                    <td>${employee.workEnd || "-"}</td>
+                    <td>${employee.tasksCompleted || "-"}</td>
+                    <td>${employee.dailyEarnings ? "₹" + employee.dailyEarnings : "-"}</td>
+                    <td>${employee.incentives ? "₹" + employee.incentives : "-"}</td>
+                    <td>${employee.advances ? "₹" + employee.advances : "-"}</td>
+                    <td>${totalSalary ? "₹" + totalSalary : "-"}</td>
+                    <td>${slab}</td>
+                `;
+                salaryTableBody.appendChild(row);
             });
-            adminPassword = newPassword;
-            return true;
-        } catch (error) {
-            console.error("Error updating password:", error);
-            return false;
         }
-    }
 
-    // [Rest of your existing functions remain the same, but replace localStorage operations with Firestore calls]
-    // For example, replace saveData(DB_KEYS.EMPLOYEES, employees) with saveEmployee(employeeData)
+        // Load Project List (modified for Firestore)
+        function loadProjectList() {
+            const projectTableBody = document.querySelector("#projectTable tbody");
+            projectTableBody.innerHTML = "";
 
-    // Initialize the page
-    document.addEventListener("DOMContentLoaded", function() {
-        loadAllData();
-        showPortal('taskUpdate');
-    });
-</script>
+            if (projects.length === 0) {
+                const row = document.createElement("tr");
+                row.innerHTML = `<td colspan="6" style="text-align: center;">No projects found</td>`;
+                projectTableBody.appendChild(row);
+                return;
+            }
+
+            projects.sort((a, b) => new Date(a.endDate) - new Date(b.endDate));
+
+            projects.forEach(project => {
+                const progress = Math.round((project.sampleAchieved / project.sampleSize) * 100);
+                const progressBar = `<progress value="${progress}" max="100"></progress> ${progress}%`;
+                
+                const row = document.createElement("tr");
+                row.innerHTML = `
+                    <td>${project.name}</td>
+                    <td>${project.startDate}</td>
+                    <td>${project.endDate}</td>
+                    <td>${project.sampleSize}</td>
+                    <td>${project.sampleAchieved}</td>
+                    <td>${progressBar}</td>
+                `;
+                projectTableBody.appendChild(row);
+            });
+        }
+
+        // Admin Login (unchanged)
+        function adminLogin() {
+            const password = document.getElementById("adminPassword").value;
+            if (password === adminPassword) {
+                loggedInUser = { type: "admin" };
+                document.getElementById("adminLoginSection").style.display = "none";
+                document.getElementById("adminControls").classList.add("active");
+                document.getElementById("adminPassword").value = "";
+                showStatusMessage("adminStatusMessage", "Admin login successful!");
+            } else {
+                showErrorMessage("adminErrorMessage", "Invalid admin password.");
+            }
+        }
+
+        // Admin Logout (unchanged)
+        function adminLogout() {
+            loggedInUser = null;
+            document.getElementById("adminControls").classList.remove("active");
+            document.getElementById("adminLoginSection").style.display = "block";
+            showPortal('adminLoginSection');
+        }
+
+        // Add Incentive and Advance (modified for Firestore)
+        async function addIncentiveAndAdvance() {
+            if (!loggedInUser || loggedInUser.type !== "admin") {
+                showErrorMessage("adminStatusMessage", "Only admin can add incentives and advances.");
+                return;
+            }
+
+            const incentiveAmount = parseFloat(document.getElementById("incentiveAmount").value) || 0;
+            const advanceAmount = parseFloat(document.getElementById("advanceAmount").value) || 0;
+            const selectedName = document.getElementById("adminEmployeeName").value;
+
+            if (!selectedName) {
+                showErrorMessage("adminStatusMessage", "Please select an employee.");
+                return;
+            }
+
+            const today = new Date().toISOString().split("T")[0];
+            let employeeIndex = employees.findIndex(emp => emp.name === selectedName && emp.date === today);
+            let employeeData;
+
+            if (employeeIndex === -1) {
+                employeeData = {
+                    name: selectedName,
+                    date: today,
+                    workStart: null,
+                    workEnd: null,
+                    tasksCompleted: 0,
+                    dailyEarnings: 0,
+                    incentives: incentiveAmount,
+                    advances: advanceAmount
+                };
+            } else {
+                employeeData = { ...employees[employeeIndex] };
+                employeeData.incentives = (employeeData.incentives || 0) + incentiveAmount;
+                employeeData.advances = (employeeData.advances || 0) + advanceAmount;
+            }
+
+            if (await saveEmployee(employeeData)) {
+                document.getElementById("incentiveAmount").value = "";
+                document.getElementById("advanceAmount").value = "";
+                showStatusMessage("adminStatusMessage", "Incentive and Advance added successfully!");
+                if (document.getElementById("salaryDashboard").classList.contains("active")) {
+                    loadSalaryDashboard();
+                }
+            } else {
+                showErrorMessage("adminStatusMessage", "Failed to add incentive and advance.");
+            }
+        }
+
+        // Add Project (modified for Firestore)
+        async function addProject() {
+            if (!loggedInUser || loggedInUser.type !== "admin") {
+                showErrorMessage("adminStatusMessage", "Only admin can add projects.");
+                return;
+            }
+
+            const projectName = document.getElementById("projectName").value;
+            const startDate = document.getElementById("startDate").value;
+            const endDate = document.getElementById("endDate").value;
+            const sampleSize = parseInt(document.getElementById("sampleSize").value);
+            const sampleAchieved = parseInt(document.getElementById("sampleAchieved").value);
+
+            if (!projectName || !startDate || !endDate || isNaN(sampleSize) || isNaN(sampleAchieved)) {
+                showErrorMessage("adminStatusMessage", "Please fill all project details with valid values.");
+                return;
+            }
+
+            if (sampleAchieved > sampleSize) {
+                showErrorMessage("adminStatusMessage", "Sample achieved cannot be greater than sample size.");
+                return;
+            }
+
+            const projectData = {
+                name: projectName,
+                startDate: startDate,
+                endDate: endDate,
+                sampleSize: sampleSize,
+                sampleAchieved: sampleAchieved
+            };
+
+            if (await saveProject(projectData)) {
+                document.getElementById("projectName").value = "";
+                document.getElementById("startDate").value = "";
+                document.getElementById("endDate").value = "";
+                document.getElementById("sampleSize").value = "";
+                document.getElementById("sampleAchieved").value = "";
+                showStatusMessage("adminStatusMessage", "Project added successfully!");
+            } else {
+                showErrorMessage("adminStatusMessage", "Failed to add project.");
+            }
+        }
+
+        // Export Data (modified for Firestore)
+        async function exportData() {
+            if (!loggedInUser || loggedInUser.type !== "admin") {
+                showErrorMessage("adminStatusMessage", "Only admin can export data.");
+                return;
+            }
+
+            const data = {
+                employees: employees,
+                projects: projects,
+                adminPassword: adminPassword
+            };
+
+            const dataStr = JSON.stringify(data, null, 2);
+            const dataUri = 'data:application/json;charset=utf-8,'+ encodeURIComponent(dataStr);
+            
+            const exportFileDefaultName = `aru-research-data-${new Date().toISOString().split('T')[0]}.json`;
+            
+            const linkElement = document.createElement('a');
+            linkElement.setAttribute('href', dataUri);
+            linkElement.setAttribute('download', exportFileDefaultName);
+            linkElement.click();
+            
+            showStatusMessage("adminStatusMessage", "Data exported successfully!");
+        }
+
+        // Import Data (modified for Firestore)
+        async function importData() {
+            if (!loggedInUser || loggedInUser.type !== "admin") {
+                showErrorMessage("adminStatusMessage", "Only admin can import data.");
+                return;
+            }
+
+            const fileInput = document.getElementById("importFile");
+            fileInput.click();
+            
+            fileInput.onchange = async e => {
+                const file = e.target.files[0];
+                if (!file) return;
+                
+                const reader = new FileReader();
+                reader.onload = async event => {
+                    try {
+                        const data = JSON.parse(event.target.result);
+                        
+                        if (data.employees && data.projects) {
+                            if (confirm("This will overwrite all current data. Are you sure?")) {
+                                // Clear existing data
+                                const employeePromises = employees.map(emp => 
+                                    db.collection(DB_COLLECTIONS.EMPLOYEES)
+                                      .doc(`${emp.name}_${emp.date}`)
+                                      .delete()
+                                );
+                                
+                                const projectPromises = projects.map(proj => 
+                                    db.collection(DB_COLLECTIONS.PROJECTS)
+                                      .doc(proj.name.toLowerCase().replace(/\s+/g, '_'))
+                                      .delete()
+                                );
+                                
+                                await Promise.all([...employeePromises, ...projectPromises]);
+                                
+                                // Import new data
+                                const newEmployeePromises = data.employees.map(emp => 
+                                    db.collection(DB_COLLECTIONS.EMPLOYEES)
+                                      .doc(`${emp.name}_${emp.date}`)
+                                      .set(emp)
+                                );
+                                
+                                const newProjectPromises = data.projects.map(proj => 
+                                    db.collection(DB_COLLECTIONS.PROJECTS)
+                                      .doc(proj.name.toLowerCase().replace(/\s+/g, '_'))
+                                      .set(proj)
+                                );
+                                
+                                await Promise.all([...newEmployeePromises, ...newProjectPromises]);
+                                
+                                if (data.adminPassword) {
+                                    await updateAdminPassword(data.adminPassword);
+                                }
+                                
+                                // Reload all data
+                                await loadAllData();
+                                showStatusMessage("adminStatusMessage", "Data imported successfully!");
+                            }
+                        } else {
+                            showErrorMessage("adminStatusMessage", "Invalid data format.");
+                        }
+                    } catch (error) {
+                        showErrorMessage("adminStatusMessage", "Error reading file: " + error.message);
+                    }
+                };
+                reader.readAsText(file);
+            };
+        }
+
+        // Clear All Data (modified for Firestore)
+        async function clearAllData() {
+            if (!loggedInUser || loggedInUser.type !== "admin") {
+                showErrorMessage("adminStatusMessage", "Only admin can clear data.");
+                return;
+            }
+
+            if (confirm("This will permanently delete ALL data. Are you sure?")) {
+                try {
+                    // Delete all employees
+                    const employeesSnapshot = await db.collection(DB_COLLECTIONS.EMPLOYEES).get();
+                    const employeeDeletes = employeesSnapshot.docs.map(doc => doc.ref.delete());
+                    
+                    // Delete all projects
+                    const projectsSnapshot = await db.collection(DB_COLLECTIONS.PROJECTS).get();
+                    const projectDeletes = projectsSnapshot.docs.map(doc => doc.ref.delete());
+                    
+                    await Promise.all([...employeeDeletes, ...projectDeletes]);
+                    
+                    // Reset admin password to default
+                    await updateAdminPassword("Admin1234");
+                    
+                    // Clear local data
+                    employees = [];
+                    projects = [];
+                    
+                    showStatusMessage("adminStatusMessage", "All data has been cleared.");
+                    
+                    // Refresh views
+                    loadSalaryDashboard();
+                    loadProjectList();
+                } catch (error) {
+                    showErrorMessage("adminStatusMessage", "Error clearing data: " + error.message);
+                }
+            }
+        }
+
+        // Initialize the page
+        document.addEventListener("DOMContentLoaded", function() {
+            loadAllData();
+            showPortal('taskUpdate');
+        });
+    </script>
+</body>
+</html>
