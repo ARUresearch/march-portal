@@ -1,0 +1,250 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <!-- Keep all your existing head content -->
+    <!-- Add these Firebase SDKs -->
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-firestore-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.6.0/firebase-auth-compat.js"></script>
+</head>
+<body>
+    <!-- Keep all your existing HTML content -->
+    
+    <script>
+        // Firebase configuration (use your actual config)
+        const firebaseConfig = {
+            apiKey: "AIzaSyB3ympyd2TkzEA8F35a9DfZ0Ahz5lXDkfg",
+            authDomain: "aru-research-71765.firebaseapp.com",
+            projectId: "aru-research-71765",
+            storageBucket: "aru-research-71765.appspot.com",
+            messagingSenderId: "112268583297",
+            appId: "1:112268583297:web:2da01fd02baf4fd4898880",
+            measurementId: "G-PK5YEPLV7Q"
+        };
+
+        // Initialize Firebase
+        const app = firebase.initializeApp(firebaseConfig);
+        const db = firebase.firestore();
+        const auth = firebase.auth();
+
+        // Database Collections
+        const DB_COLLECTIONS = {
+            EMPLOYEES: "employees",
+            PROJECTS: "projects",
+            SETTINGS: "settings"
+        };
+
+        // Initialize data
+        let employees = [];
+        let projects = [];
+        let adminPassword = "Admin1234";
+        let loggedInUser = null;
+        let currentEmployee = null;
+
+        // Salary Slabs
+        const slabRates = { "A": 100, "B": 80, "C": 60 };
+
+        // ====================== Real-Time Listeners ======================
+        
+        // Set up real-time listener for employees
+        function setupEmployeeListener() {
+            db.collection(DB_COLLECTIONS.EMPLOYEES)
+                .onSnapshot((snapshot) => {
+                    employees = [];
+                    snapshot.forEach((doc) => {
+                        employees.push(doc.data());
+                    });
+                    if (document.getElementById("salaryDashboard").classList.contains("active")) {
+                        loadSalaryDashboard();
+                    }
+                }, (error) => {
+                    console.error("Employee listener error:", error);
+                });
+        }
+
+        // Set up real-time listener for projects
+        function setupProjectListener() {
+            db.collection(DB_COLLECTIONS.PROJECTS)
+                .onSnapshot((snapshot) => {
+                    projects = [];
+                    snapshot.forEach((doc) => {
+                        projects.push(doc.data());
+                    });
+                    if (document.getElementById("projectList").classList.contains("active")) {
+                        loadProjectList();
+                    }
+                }, (error) => {
+                    console.error("Project listener error:", error);
+                });
+        }
+
+        // Set up real-time listener for admin password
+        function setupSettingsListener() {
+            db.collection(DB_COLLECTIONS.SETTINGS).doc("admin")
+                .onSnapshot((doc) => {
+                    if (doc.exists) {
+                        adminPassword = doc.data().password || "Admin1234";
+                    }
+                });
+        }
+
+        // ====================== Firebase Operations ======================
+        
+        // Save employee data with real-time updates
+        async function saveEmployee(employeeData) {
+            try {
+                const docId = `${employeeData.name}_${employeeData.date}`;
+                await db.collection(DB_COLLECTIONS.EMPLOYEES).doc(docId).set(employeeData);
+                return true;
+            } catch (error) {
+                console.error("Error saving employee:", error);
+                showErrorMessage("taskErrorMessage", "Failed to save employee data.");
+                return false;
+            }
+        }
+
+        // Save project data with real-time updates
+        async function saveProject(projectData) {
+            try {
+                const docId = projectData.name.toLowerCase().replace(/\s+/g, '_');
+                await db.collection(DB_COLLECTIONS.PROJECTS).doc(docId).set(projectData);
+                return true;
+            } catch (error) {
+                console.error("Error saving project:", error);
+                showErrorMessage("adminStatusMessage", "Failed to save project data.");
+                return false;
+            }
+        }
+
+        // Update admin password
+        async function updateAdminPassword(newPassword) {
+            try {
+                await db.collection(DB_COLLECTIONS.SETTINGS).doc("admin").set({
+                    password: newPassword
+                });
+                return true;
+            } catch (error) {
+                console.error("Error updating password:", error);
+                return false;
+            }
+        }
+
+        // ====================== Modified Core Functions ======================
+
+        // Mark Work Start (updated for real-time)
+        async function markWorkStart() {
+            const selectedName = document.getElementById("employeeName").value;
+            const confirmName = document.getElementById("confirmName").value;
+
+            if (selectedName !== confirmName) {
+                showErrorMessage("taskErrorMessage", "Employee name does not match. Please confirm your name.");
+                return;
+            }
+
+            const now = new Date();
+            const today = now.toISOString().split("T")[0];
+            currentEmployee = { name: selectedName, date: today };
+
+            const employeeData = {
+                name: selectedName,
+                date: today,
+                workStart: now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                workEnd: null,
+                tasksCompleted: 0,
+                dailyEarnings: 0,
+                incentives: 0,
+                advances: 0,
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if (await saveEmployee(employeeData)) {
+                showStatusMessage("taskStatusMessage", "Work started successfully!");
+            } else {
+                showErrorMessage("taskErrorMessage", "Failed to save work start time.");
+            }
+        }
+
+        // Mark Work End (updated for real-time)
+        async function markWorkEnd() {
+            if (!currentEmployee) {
+                showErrorMessage("taskErrorMessage", "No active employee session. Please mark work start first.");
+                return;
+            }
+
+            const now = new Date();
+            const employeeIndex = employees.findIndex(emp => 
+                emp.name === currentEmployee.name && 
+                emp.date === currentEmployee.date
+            );
+
+            if (employeeIndex === -1) {
+                showErrorMessage("taskErrorMessage", "No attendance record found. Please mark work start first.");
+                return;
+            }
+
+            const employeeData = { 
+                ...employees[employeeIndex],
+                workEnd: now.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'}),
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            };
+
+            if (await saveEmployee(employeeData)) {
+                document.getElementById("taskForm").classList.remove("disabled");
+                showStatusMessage("taskStatusMessage", "Work ended successfully! You can now enter tasks.");
+            } else {
+                showErrorMessage("taskErrorMessage", "Failed to save work end time.");
+            }
+        }
+
+        // Task Form Submission (updated for real-time)
+        document.getElementById("taskForm").addEventListener("submit", async function (e) {
+            e.preventDefault();
+            
+            if (!currentEmployee) {
+                showErrorMessage("taskErrorMessage", "No active employee session.");
+                return;
+            }
+
+            const tasksCompleted = parseInt(document.getElementById("tasksCompleted").value);
+            const employeeIndex = employees.findIndex(emp => 
+                emp.name === currentEmployee.name && 
+                emp.date === currentEmployee.date
+            );
+
+            if (employeeIndex === -1) {
+                showErrorMessage("taskErrorMessage", "No attendance record found.");
+                return;
+            }
+
+            const employeeData = { 
+                ...employees[employeeIndex],
+                tasksCompleted: tasksCompleted,
+                dailyEarnings: tasksCompleted * slabRates[calculateSalarySlab(tasksCompleted)],
+                lastUpdated: firebase.firestore.FieldValue.serverTimestamp()
+            };
+            
+            if (await saveEmployee(employeeData)) {
+                document.getElementById("taskForm").reset();
+                document.getElementById("taskForm").classList.add("disabled");
+                showStatusMessage("taskStatusMessage", "Tasks Updated Successfully!");
+            } else {
+                showErrorMessage("taskErrorMessage", "Failed to update tasks.");
+            }
+        });
+
+        // Initialize the page with real-time listeners
+        document.addEventListener("DOMContentLoaded", function() {
+            // Set up all real-time listeners
+            setupEmployeeListener();
+            setupProjectListener();
+            setupSettingsListener();
+            
+            // Show default portal
+            showPortal('taskUpdate');
+        });
+
+        // Keep all your other existing functions (showPortal, loadSalaryDashboard, etc.)
+        // They will now work with the real-time data automatically
+    </script>
+</body>
+</html>
